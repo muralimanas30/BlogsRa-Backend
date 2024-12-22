@@ -20,8 +20,8 @@ const UserSchema = mongoose.Schema({
     password : {
         type:String,
         requied:[true, 'Please provide password'],
-        minLength:[6,'password too short'],
-        maxLength:[20,'password too long'],
+        minLength:[6,'password atleast 6 characters'],
+        maxLength:[20,'password atmost 20 characters'],
     },
 })
 

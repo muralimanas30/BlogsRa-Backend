@@ -83,12 +83,19 @@ const register = async (req, res) => {
             message: "REGISTRATION SUCCESSFUL"
         });
     } catch (error) {
-        // Check for specific error types or provide a generic message
-        const statusCode = error.name === 'ValidationError' ? StatusCodes.BAD_REQUEST : StatusCodes.INTERNAL_SERVER_ERROR;
-        throw new CustomError(error.message || 'Registration failed', statusCode);
+        if (error.name === 'ValidationError') {
+            // Extract the validation message
+            const messages = Object.values(error.errors).map(err => err.message);
+            console.dir(messages.join(', ') || error, { depth: null });
+    
+            const statusCode = StatusCodes.BAD_REQUEST;
+            throw new CustomError(messages.join(', ') || 'Registration failed', statusCode);
+        } else {
+            const statusCode = StatusCodes.INTERNAL_SERVER_ERROR;
+            throw new CustomError(error.message || 'Registration failed', statusCode);
+        }
     }
-};
-
+}
 /* -------------------------------------------------------------------------- */
 /*                               LOGIN FUCNTION                               */
 /* -------------------------------------------------------------------------- */

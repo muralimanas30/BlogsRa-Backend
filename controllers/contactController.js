@@ -11,24 +11,21 @@ const CustomError = require('../error/CustomError'); // Assuming you have a cust
 const createContactUs = async (req, res, next) => {
     try {
         // Extract the data from the request body
-        const { email, name, message } = req.body;
-        
-        // Get the client's IP address from the request
-        const ipAddress = req.ip || req.headers['x-forwarded-for'] || '';
+        const { email, name, message,ip:ipAddress } = req.body;
         
         // Create a new contact form submission entry in the database
         const newContact = await Contact.create({
             name,
             email,
             message,
-            ipAddress,
+            ipAddress:JSON.stringify(ipAddress),
         });
         
         // Send a success response with status 201 (Created)
         res.status(StatusCodes.CREATED).json({ message: 'Message successfully sent!' });
         
         // Log the new contact for debugging purposes (you can remove this in production)
-        console.dir(newContact, { depth: null });
+        console.log(newContact);
 
     } catch (error) {
         // Pass the error to your custom error handler

@@ -1,3 +1,4 @@
+const { isBoolean } = require('lodash');
 const mongoose = require('mongoose');
 
 /* -------------------------------------------------------------------------- */
@@ -21,6 +22,10 @@ const AccountStatusSchema = mongoose.Schema({
     userId: {
         type: String, // Can be a custom string identifier
         unique: true, // Optional for uniqueness if needed
+    },
+    byOAuth : {
+        type : Boolean,
+        default:false,
     },
     name: {
         type: String,
@@ -49,7 +54,7 @@ const AccountStatusSchema = mongoose.Schema({
         type: String,
         default: () => defaultBios[Math.floor(Math.random() * defaultBios.length)],
 
-        maxLength: [250, 'Bio cannot exceed 250 characters'],
+        maxLength: [50, 'Bio cannot exceed 50 characters'],
         trim: true,
     },
     profilePictureUrl: {

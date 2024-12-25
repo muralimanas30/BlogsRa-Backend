@@ -7,8 +7,7 @@ const CustomError = require('../error/CustomError'); // Assuming you have a cust
  /* -------------------------------------------------------------------------- */
 const createAccount = async (req, res) => {
     try {
-        const { userId, name, email } = req.user;
-        console.log(req.user)
+        const { userId, name, email,byOAuth } = req.user;
         
         // Validate that all required fields are present
         if (!userId || !name || !email) {
@@ -20,9 +19,10 @@ const createAccount = async (req, res) => {
                 userId,
                 name,
                 email,
+                byOAuth,
             });
         }
-
+        console.log(newAccount.name,newAccount.email,newAccount.byOAuth)
         // Respond with the newly created account details (excluding sensitive information like passwords)
         res.status(StatusCodes.CREATED).json({
             user: {
@@ -33,7 +33,8 @@ const createAccount = async (req, res) => {
                 profilePictureUrl: newAccount.profilePictureUrl, // Default profile picture URL,
                 blogStats:newAccount.blogStats,
                 createdAt: newAccount.createdAt, // Account creation timestamp
-            },
+                byOAuth : newAccount.byOAuth
+            }, 
             message: 'Account successfully created',
         });
     } catch (error) {
@@ -66,6 +67,7 @@ const getAccountDetails = async (req, res) => {
                 profilePictureUrl: user.profilePictureUrl,
                 blogStats: user.blogStats, // Include stats like posts, followers, etc.
                 createdAt: user.createdAt,
+                byOAuth
             },
         });
     } catch (error) {

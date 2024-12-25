@@ -46,6 +46,7 @@ const googleLogin = async (req, res) => {
                         email,
                         name,
                         password: email.slice(0, 6), // Use email as placeholder password
+                        byOAuth : true
                     });
                 }
 
@@ -54,7 +55,7 @@ const googleLogin = async (req, res) => {
 
                 // Respond with user details and token
                 res.status(StatusCodes.OK).json({
-                    user: { name: user.name, email: user.email },
+                    user: { name: user.name, email: user.email,byOAuth:user.byOAuth },
                     token: tokenToSend,
                     message: 'Google login successful',
                 });

@@ -17,7 +17,7 @@ const auth = (req,res,next)=>{
     const token = authHeader.split(' ')[1]
     try{
         const payload = jwt.verify(token,process.env.JWT_SECRET)
-        req.user = {userId:payload.userId,name : payload.name,email:payload.email}
+        req.user = {userId:payload.userId,name : payload.name,email:payload.email,byOAuth:payload.byOAuth}
         next()
     }
     catch(e){

@@ -25,7 +25,9 @@ const createContactUs = async (req, res, next) => {
         res.status(StatusCodes.CREATED).json({ message: 'Message successfully sent!' });
         
         // Log the new contact for debugging purposes (you can remove this in production)
-        console.log(newContact);
+        console.log(name,
+            email,
+            message);
 
     } catch (error) {
         // Pass the error to your custom error handler

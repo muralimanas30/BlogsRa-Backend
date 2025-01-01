@@ -1,32 +1,33 @@
 const AccountStatus = require('../models/AccountStatus'); // Import the AccountStatus model
 const { StatusCodes } = require('http-status-codes'); // For HTTP status codes
 const CustomError = require('../error/CustomError'); // Assuming you have a custom error handler
+const cloudinary = require('../utility/cloudinary')
 require("dotenv").config()
 const fs = require('fs')
 const FormData = require('form-data');
 const axios = require('axios')
- /* -------------------------------------------------------------------------- */
- /*                           CREATE ACCOUNT FUNCTION                          */
- /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                           CREATE ACCOUNT FUNCTION                          */
+/* -------------------------------------------------------------------------- */
 const createAccount = async (req, res) => {
     try {
-        const { userId, name, email,byOAuth } = req.user;
-        
+        const { userId, name, email, byOAuth } = req.user;
+
         // Validate that all required fields are present
         if (!userId || !name || !email) {
             throw new CustomError('Please provide userId, name, and email', StatusCodes.BAD_REQUEST);
         }
         let newAccount = await AccountStatus.findOne({ email });
-        if(!newAccount){
+        if (!newAccount) {
             newAccount = await AccountStatus.create({
                 userId,
                 name,
                 email,
                 byOAuth,
             });
-            
+
         }
-        console.log(newAccount.name,newAccount.email,newAccount.byOAuth)
+        console.log(newAccount.name, newAccount.email, newAccount.byOAuth)
         // Respond with the newly created account details (excluding sensitive information like passwords)
         res.status(StatusCodes.CREATED).json({
             user: {
@@ -35,11 +36,11 @@ const createAccount = async (req, res) => {
                 email: newAccount.email,
                 bio: newAccount.bio, // Default bio set in schema
                 profilePicture: newAccount.profilePicture, // Default profile picture URL,
-                blogStats:newAccount.blogStats,
+                blogStats: newAccount.blogStats,
                 createdAt: newAccount.createdAt, // Account creation timestamp
-                byOAuth : newAccount.byOAuth,
-                updatedAt : newAccount.updatedAt,
-            }, 
+                byOAuth: newAccount.byOAuth,
+                updatedAt: newAccount.updatedAt,
+            },
             message: 'Account successfully created',
         });
     } catch (error) {
@@ -74,25 +75,32 @@ const updateAccount = async (req, res) => {
         existingAcc.bio = bio || existingAcc.bio;
         let imageUrl = existingAcc.profilePicture; // Default to existing profile picture
 
-        // Update profilePicture if a file is provided
+        // Upload profile picture if a file is provided
         if (file) {
-            const formData2 = new FormData();
-            formData2.append("file", file.buffer, file.originalname); // Use file.buffer for file upload
-            formData2.append("cloud_name", process.env.CLOUDINARY_CLOUD_NAME);
-            formData2.append("upload_preset", process.env.CLOUDINARY_UPLOAD_PRESET);
-            // Send the formData to Cloudinary for uploading the picture
             try {
-                const { data } = await axios.post(process.env.CLOUDINARY_BASE_URL, formData2, {
-                    headers: {
-                        ...formData2.getHeaders(), // Automatically sets the correct multipart/form-data headers
-                    },
+                // Use a promise to handle the Cloudinary upload
+                const uploadResult = await new Promise((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                        { resource_type: 'image' },
+                        (error, result) => {
+                            if (error) {
+                                return reject(new CustomError('Error uploading image to Cloudinary', StatusCodes.INTERNAL_SERVER_ERROR));
+                            }
+                            resolve(result); // Resolve the promise with the result
+                        }
+                    );
+
+                    // Pipe the file buffer into the Cloudinary stream
+                    stream.end(file.buffer); // End the stream with the file buffer
                 });
 
-                imageUrl = data.secure_url; // Set the uploaded image URL
+                // Get the URL from the upload result
+                imageUrl = uploadResult.secure_url; // Set the uploaded image URL
                 existingAcc.profilePicture = imageUrl; // Update the profile picture URL
+
             } catch (error) {
-                console.error('Error uploading image to Cloudinary:', error.response ? error.response.data : error.message);
-                throw new CustomError('Error uploading image to Cloudinary', StatusCodes.INTERNAL_SERVER_ERROR);
+                console.error('Error uploading image to Cloudinary:', error.message);
+                throw error; // Throw the error to be caught in the outer catch block
             }
         }
 
@@ -116,7 +124,7 @@ const updateAccount = async (req, res) => {
             Email: ${email}
             Bio: ${existingAcc.bio || 'No bio provided'}
             Profile Picture: ${existingAcc.profilePicture || 'No profile picture available'}`);
-        
+
     } catch (error) {
         console.error(error);
         // Handle any errors that occurred during the process
@@ -127,9 +135,9 @@ const updateAccount = async (req, res) => {
 };
 
 
- /* -------------------------------------------------------------------------- */
- /*                        GET ACCOUNT DETAILS FUNCTION                        */
- /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                        GET ACCOUNT DETAILS FUNCTION                        */
+/* -------------------------------------------------------------------------- */
 const getAccountDetails = async (req, res) => {
     try {
         const { userId } = req.user;
@@ -151,7 +159,7 @@ const getAccountDetails = async (req, res) => {
                 profilePicture: user.profilePicture,
                 blogStats: user.blogStats, // Include stats like posts, followers, etc.
                 createdAt: user.createdAt,
-                updatedAt : newAccount.updatedAt,
+                updatedAt: newAccount.updatedAt,
                 byOAuth
             },
         });
@@ -161,9 +169,9 @@ const getAccountDetails = async (req, res) => {
     }
 };
 
- /* -------------------------------------------------------------------------- */
- /*                           DELETE ACCOUNT FUNCTION                          */
- /* -------------------------------------------------------------------------- */
+/* -------------------------------------------------------------------------- */
+/*                           DELETE ACCOUNT FUNCTION                          */
+/* -------------------------------------------------------------------------- */
 const deleteAccount = async (req, res) => {
     try {
         const { email } = req.user;
@@ -191,7 +199,7 @@ const deleteAccount = async (req, res) => {
 
 
 
- /* -------------------------------------------------------------------------- */
- /*                  Export the functions to be used in routes                 */
- /* -------------------------------------------------------------------------- */
-module.exports = { createAccount, getAccountDetails, deleteAccount,updateAccount };
+/* -------------------------------------------------------------------------- */
+/*                  Export the functions to be used in routes                 */
+/* -------------------------------------------------------------------------- */
+module.exports = { createAccount, getAccountDetails, deleteAccount, updateAccount };

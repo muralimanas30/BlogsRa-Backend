@@ -1,6 +1,6 @@
 
 const mongoose = require('mongoose');
-const {getDefaultImageBuffer} = require('../utility/imgConverter')
+
 
 /* -------------------------------------------------------------------------- */
 /*             FEW DEFAULT BIOS TO BEGIN WITH, LATER CAN BE EDITED            */

@@ -1,5 +1,6 @@
 
 const mongoose = require('mongoose');
+const {getDefaultImageBuffer} = require('../utility/imgConverter')
 
 /* -------------------------------------------------------------------------- */
 /*             FEW DEFAULT BIOS TO BEGIN WITH, LATER CAN BE EDITED            */
@@ -57,9 +58,9 @@ const AccountStatusSchema = mongoose.Schema({
         maxLength: [50, 'Bio cannot exceed 50 characters'],
         trim: true,
     },
-    profilePictureUrl: {
+    profilePicture: {
         type: String,
-        default : "",
+        default : "https://res.cloudinary.com/dddmjpmci/image/upload/v1735728576/lrvdsaud65vistwaghsu.jpg",
     },
     socialLinks: {
         type: Object,

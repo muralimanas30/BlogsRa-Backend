@@ -19,12 +19,13 @@ const morgan = require('morgan');
 app.use(morgan('combined')); // 'combined' provides standard Apache log output
 
 // Middleware
+// Middleware to parse form-data
+app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(helmet());
-
 app.use(
     cors({
-        origin: ['http://localhost:5173',`${process.env.IP_1}`,`${process.env.IP_2}`], 
+        origin: ['http://localhost:5173',`${process.env.IP_1}`,`${process.env.IP_2}`,`${process.env.IP_3}`], 
         credentials: true,
     })
 );

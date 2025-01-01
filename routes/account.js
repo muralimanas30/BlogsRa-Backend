@@ -24,7 +24,7 @@ const upload = multer({storage:storage})
 router.post('/account', authenticator, createAccount)  //  auth required
     .get('/account', authenticator, getAccountDetails)  // Auth required
     .delete('/account', authenticator, deleteAccount);
-router.post('/accountupdate', authenticator,upload.single('file'),updateAccount)
+router.post('/accountupdate', authenticator,upload.single('profilePicture'),updateAccount)
 
 /* -------------------------------------------------------------------------- */
 /*                                 Post routes                                */

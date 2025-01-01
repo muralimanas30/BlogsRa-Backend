@@ -2,6 +2,7 @@ const AccountStatus = require('../models/AccountStatus'); // Import the AccountS
 const { StatusCodes } = require('http-status-codes'); // For HTTP status codes
 const CustomError = require('../error/CustomError'); // Assuming you have a custom error handler
 require("dotenv").config()
+const fs = require('fs')
 const FormData = require('form-data');
 const axios = require('axios')
  /* -------------------------------------------------------------------------- */
@@ -76,18 +77,17 @@ const updateAccount = async (req, res) => {
         // Update profilePicture if a file is provided
         if (file) {
             const formData2 = new FormData();
-            formData2.append("file", file.buffer); // Use file.buffer if using multer
-            
+            formData2.append("file", file.buffer, file.originalname); // Use file.buffer for file upload
             formData2.append("cloud_name", process.env.CLOUDINARY_CLOUD_NAME);
             formData2.append("upload_preset", process.env.CLOUDINARY_UPLOAD_PRESET);
             // Send the formData to Cloudinary for uploading the picture
             try {
                 const { data } = await axios.post(process.env.CLOUDINARY_BASE_URL, formData2, {
                     headers: {
-                        ...formData2.getHeaders(), // Use this if you're in a Node.js environment
+                        ...formData2.getHeaders(), // Automatically sets the correct multipart/form-data headers
                     },
                 });
-            
+
                 imageUrl = data.secure_url; // Set the uploaded image URL
                 existingAcc.profilePicture = imageUrl; // Update the profile picture URL
             } catch (error) {
@@ -111,12 +111,11 @@ const updateAccount = async (req, res) => {
             },
             message: 'Account successfully updated',
         });
-        
+
         console.log(`Account successfully updated:
             Email: ${email}
             Bio: ${existingAcc.bio || 'No bio provided'}
-            Profile Picture: ${existingAcc.profilePicture || 'No profile picture available'}
-        `);
+            Profile Picture: ${existingAcc.profilePicture || 'No profile picture available'}`);
         
     } catch (error) {
         console.error(error);
@@ -126,6 +125,7 @@ const updateAccount = async (req, res) => {
         });
     }
 };
+
 
  /* -------------------------------------------------------------------------- */
  /*                        GET ACCOUNT DETAILS FUNCTION                        */

@@ -1,157 +1,166 @@
-const AccountStatus = require('../models/AccountStatus'); // Import the AccountStatus model
-const { StatusCodes } = require('http-status-codes'); // For HTTP status codes
-const CustomError = require('../error/CustomError'); // Assuming you have a custom error handler
-const cloudinary = require('../utility/cloudinary')
+const AccountStatus = require('../models/AccountStatus'); 
+const { StatusCodes } = require('http-status-codes'); 
+const CustomError = require('../error/CustomError'); 
+const cloudinary = require('../utility/cloudinary');
+const PostList = require('../models/PostList');
 require("dotenv").config()
-const fs = require('fs')
-const FormData = require('form-data');
-const axios = require('axios')
+const PostSchema = require('../models/Post')
+
 /* -------------------------------------------------------------------------- */
 /*                           CREATE ACCOUNT FUNCTION                          */
 /* -------------------------------------------------------------------------- */
-const createAccount = async (req, res) => {
+const createAccount = async (req, res, next) => {
     try {
         const { userId, name, email, byOAuth } = req.user;
 
-        // Validate that all required fields are present
+        // Validate input
         if (!userId || !name || !email) {
-            throw new CustomError('Please provide userId, name, and email', StatusCodes.BAD_REQUEST);
+            throw new CustomError('Missing required fields: userId, name, or email', StatusCodes.BAD_REQUEST);
         }
-        let newAccount = await AccountStatus.findOne({ email });
-        if (!newAccount) {
-            newAccount = await AccountStatus.create({
+
+        // Check if account already exists
+        let existingAccount = await AccountStatus.findOne({ email });
+        if (!existingAccount) {
+            existingAccount = await AccountStatus.create({
                 userId,
                 name,
                 email,
                 byOAuth,
             });
-
         }
-        console.log(newAccount.name, newAccount.email, newAccount.byOAuth)
-        // Respond with the newly created account details (excluding sensitive information like passwords)
+
+        console.log(existingAccount.name, existingAccount.email, existingAccount.byOAuth)
+        // Respond with account details
         res.status(StatusCodes.CREATED).json({
-            user: {
-                userId: newAccount.userId,
-                name: newAccount.name,
-                email: newAccount.email,
-                bio: newAccount.bio, // Default bio set in schema
-                profilePicture: newAccount.profilePicture, // Default profile picture URL,
-                blogStats: newAccount.blogStats,
-                createdAt: newAccount.createdAt, // Account creation timestamp
-                byOAuth: newAccount.byOAuth,
-                updatedAt: newAccount.updatedAt,
-            },
+            success: true,
             message: 'Account successfully created',
+            user: {
+                accountId: existingAccount._id,
+                userId: existingAccount.userId,
+                name: existingAccount.name,
+                email: existingAccount.email,
+                bio: existingAccount.bio,
+                profilePicture: existingAccount.profilePicture,
+                blogStats: existingAccount.blogStats,
+                createdAt: existingAccount.createdAt,
+                byOAuth: existingAccount.byOAuth,
+                updatedAt: existingAccount.updatedAt,
+            },
         });
     } catch (error) {
-        console.error(error);
-        throw new CustomError(error.message || 'An error occurred while creating the account', StatusCodes.INTERNAL_SERVER_ERROR);
+        next(new CustomError(error.message || 'Failed to create account', error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
     }
 };
+
 
 /* -------------------------------------------------------------------------- */
 /*                           UPDATE ACCOUNT FUNCTION                          */
 /* -------------------------------------------------------------------------- */
-const updateAccount = async (req, res) => {
+const updateAccount = async (req, res, next) => {
     try {
-        const { email } = req.user; // Getting email from the authenticated user (req.user)
-        const { bio } = req.body; // Getting bio from the request body
-        const file = req.file; // The uploaded file from multer
+        const { email } = req.user; 
+        const { bio } = req.body; 
+        const file = req.file;
 
-        // Validate that email is provided
         if (!email) {
             throw new CustomError('Please provide email', StatusCodes.BAD_REQUEST);
         }
 
-        // Find the account by email
         let existingAcc = await AccountStatus.findOne({ email });
 
-        // If no account is found, throw an error
         if (!existingAcc) {
             throw new CustomError('Account not found', StatusCodes.NOT_FOUND);
         }
 
-        // Update bio if it's provided
         existingAcc.bio = bio || existingAcc.bio;
-        let imageUrl = existingAcc.profilePicture; // Default to existing profile picture
+        let imageUrl = existingAcc.profilePicture; 
 
-        // Upload profile picture if a file is provided
         if (file) {
-            try {
-                // Use a promise to handle the Cloudinary upload
-                const uploadResult = await new Promise((resolve, reject) => {
-                    const stream = cloudinary.uploader.upload_stream(
-                        { resource_type: 'image' },
-                        (error, result) => {
-                            if (error) {
-                                return reject(new CustomError('Error uploading image to Cloudinary', StatusCodes.INTERNAL_SERVER_ERROR));
-                            }
-                            resolve(result); // Resolve the promise with the result
-                        }
-                    );
-
-                    // Pipe the file buffer into the Cloudinary stream
-                    stream.end(file.buffer); // End the stream with the file buffer
-                });
-
-                // Get the URL from the upload result
-                imageUrl = uploadResult.secure_url; // Set the uploaded image URL
-                existingAcc.profilePicture = imageUrl; // Update the profile picture URL
-
-            } catch (error) {
-                console.error('Error uploading image to Cloudinary:', error.message);
-                throw error; // Throw the error to be caught in the outer catch block
-            }
+            const uploadResult = await cloudinary.uploader.upload(file.path, {
+                resource_type: 'image',
+            });
+            imageUrl = uploadResult.secure_url; 
+            existingAcc.profilePicture = imageUrl; 
         }
-
-        // Update the updatedAt field to reflect the time of the update
         existingAcc.updatedAt = Date.now();
-
-        // Save the updated document back to the database
         await existingAcc.save();
 
-        // Return the updated account information in the response
         res.status(StatusCodes.OK).json({
             user: {
                 bio: existingAcc.bio,
-                profilePicture: existingAcc.profilePicture, // Ensure the correct profile picture URL is returned
-                updatedAt: existingAcc.updatedAt, // Include the updated timestamp
+                profilePicture: existingAcc.profilePicture, 
+                updatedAt: existingAcc.updatedAt, 
             },
+            success: true,
             message: 'Account successfully updated',
         });
+
 
         console.log(`Account successfully updated:
             Email: ${email}
             Bio: ${existingAcc.bio || 'No bio provided'}
             Profile Picture: ${existingAcc.profilePicture || 'No profile picture available'}`);
 
+            await updateProfileForAllPosts(existingAcc._id,
+                existingAcc.profilePicture
+            )
+            
     } catch (error) {
-        console.error(error);
-        // Handle any errors that occurred during the process
-        res.status(error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR).json({
-            message: error.message || 'An error occurred while updating the account',
-        });
+        next(new CustomError(error.message || 'An error occurred while updating the account', error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
+
     }
 };
+const updateProfileForAllPosts = async(accountId, newProfilePictureUrl)=>{
+    try {
+        // Step 1: Find the PostList document for the user
+        const postList = await PostList.findOne({ accountId });
+        if (!postList) {
+            console.error("No PostList found for the given accountId");
+            return;
+        }
 
+        // Step 2: Extract the posts array
+        const postIds = postList.posts;
+        console.log(postIds)
+        // Step 3: Update each post's profilePicture
+        await PostSchema.updateMany(
+            { _id: { $in: postIds } }, // Match all posts in the array
+            { $set: { profilePicture: newProfilePictureUrl } } // Update profilePicture
+        );
+
+        console.log(`Successfully updated profilePicture for ${postIds.length} posts`);
+    } catch (error) {
+        console.error("Error updating profile pictures:", error);
+    } finally {
+        // Close the database connection
+    }
+}
 
 /* -------------------------------------------------------------------------- */
 /*                        GET ACCOUNT DETAILS FUNCTION                        */
 /* -------------------------------------------------------------------------- */
-const getAccountDetails = async (req, res) => {
+const getAccountDetails = async (req, res, next) => {
     try {
-        const { userId } = req.user;
+        const { userId } = req.body;
+        console.log(userId+" From get account details")
+        // Validate userId is provided
+        if (!userId) {
+            throw new CustomError('User ID is required', StatusCodes.BAD_REQUEST);
+        }
 
-        // Find the account details for the authenticated user
         const user = await AccountStatus.findOne({ userId });
 
         if (!user) {
-            throw new CustomError('Account not found', StatusCodes.NOT_FOUND);
+            next(new CustomError('Account not found', StatusCodes.NOT_FOUND));
+            return
         }
 
         // Return the user account details
         res.status(StatusCodes.OK).json({
+            success: true,
+            message: 'Account details fetched successfully',
             user: {
+                accountId: user._id,
                 userId: user.userId,
                 name: user.name,
                 email: user.email,
@@ -159,22 +168,25 @@ const getAccountDetails = async (req, res) => {
                 profilePicture: user.profilePicture,
                 blogStats: user.blogStats, // Include stats like posts, followers, etc.
                 createdAt: user.createdAt,
-                updatedAt: newAccount.updatedAt,
-                byOAuth
+                updatedAt: user.updatedAt,
+                byOAuth: false
             },
         });
     } catch (error) {
-        console.error(error);
-        throw new CustomError(error.message || 'An error occurred while fetching account details', StatusCodes.INTERNAL_SERVER_ERROR);
+        
+        next(new CustomError(error.message || 'An error occurred while fetching account details', error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
     }
 };
 
 /* -------------------------------------------------------------------------- */
 /*                           DELETE ACCOUNT FUNCTION                          */
 /* -------------------------------------------------------------------------- */
-const deleteAccount = async (req, res) => {
+const deleteAccount = async (req, res, next) => {
     try {
         const { email } = req.user;
+        if (!email) {
+            throw new CustomError('Email is required to delete the account', StatusCodes.BAD_REQUEST);
+        }
 
         // Find and delete the user's account using the userId
         const user = await AccountStatus.findOneAndDelete({ email });
@@ -184,19 +196,14 @@ const deleteAccount = async (req, res) => {
         }
 
         // Optionally, delete related data such as posts, comments, etc.
-        // For example:
-        // await Post.deleteMany({ userId });
-
-        // Send a response confirming the account was successfully deleted
         res.status(StatusCodes.OK).json({
+            success: true,
             message: 'Account successfully deleted',
         });
     } catch (error) {
-        console.error(error);
-        throw new CustomError(error.message || 'An error occurred while deleting the account', StatusCodes.INTERNAL_SERVER_ERROR);
+        next(new CustomError(error.message || 'An error occurred while deleting the account', error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
     }
 };
-
 
 
 /* -------------------------------------------------------------------------- */

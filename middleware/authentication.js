@@ -3,7 +3,7 @@ const jwt = require('jsonwebtoken')
 
 
 /* -------------------------------------------------------------------------- */
-/*        AUTHENTICATION MIDDLEWARE, ADD PAYLOAD TO REQUEST BODY FROM TOKEN        */
+/*        AUTHENTICATION MIDDLEWARE, ADD PAYLOAD TO REQUEST BODY FROM TOKEN   */
 /* -------------------------------------------------------------------------- */
 
 const auth = (req,res,next)=>{
@@ -18,6 +18,7 @@ const auth = (req,res,next)=>{
     try{
         const payload = jwt.verify(token,process.env.JWT_SECRET)
         req.user = {userId:payload.userId,name : payload.name,email:payload.email,byOAuth:payload.byOAuth}
+        // console.log(req.body)
         next()
     }
     catch(e){

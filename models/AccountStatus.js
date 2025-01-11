@@ -60,7 +60,7 @@ const AccountStatusSchema = mongoose.Schema({
     },
     profilePicture: {
         type: String,
-        default : "https://res.cloudinary.com/dddmjpmci/image/upload/v1735728576/lrvdsaud65vistwaghsu.jpg",
+        default : "https://res.cloudinary.com/dddmjpmci/image/upload/v1735810332/hvdqqu7jzyod7brklvxc.png",
     },
     socialLinks: {
         type: Object,
@@ -78,10 +78,6 @@ const AccountStatusSchema = mongoose.Schema({
         posts: { type: Number, default: 0 },
         followers: { type: Number, default: 0 },
         following: { type: Number, default: 0 },
-    },
-    posts: {
-        type: [mongoose.Schema.Types.ObjectId],
-        ref: 'Post',
     },
 });
 AccountStatusSchema.post('save', function (error, doc, next) {

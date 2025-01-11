@@ -1,8 +1,8 @@
 const { StatusCodes } = require('http-status-codes');
 const { Contact } = require('../models/ContactUs.js');
-const CustomError = require('../error/CustomError'); // Assuming you have a custom error handler
+const CustomError = require('../error/CustomError'); 
 
-// The function should accept req and res as arguments (to handle HTTP request and response)
+
 
 /* -------------------------------------------------------------------------- */
 /*                       TO SAVE THE MESSAGE TO DATABASE                      */
@@ -10,7 +10,7 @@ const CustomError = require('../error/CustomError'); // Assuming you have a cust
 
 const createContactUs = async (req, res, next) => {
     try {
-        // Extract the data from the request body
+
         const { email, name, message,ip:ipAddress } = req.body;
         
         // Create a new contact form submission entry in the database

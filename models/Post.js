@@ -6,10 +6,6 @@ const mongoose = require('mongoose');
 
 const PostSchema = new mongoose.Schema(
     {
-        email:{
-            type:String,
-            required: true,
-        },
         accountId: { // Stores the AccountStatus _id
             type: mongoose.Schema.Types.ObjectId,
             ref: 'AccountStatus',
@@ -18,6 +14,13 @@ const PostSchema = new mongoose.Schema(
         userId: { // Stores the custom userId
             type: String,
             required: true,
+        },
+        name:{
+            type:String
+        },
+        profilePicture:{
+            type:String,
+            
         },
         title: {
             type: String,
@@ -32,10 +35,6 @@ const PostSchema = new mongoose.Schema(
         tags: {
             type: [String],
             default: [],
-        },
-        categories: {
-            type: [String],
-            default: []
         },
         imageUrl: {
             type: String

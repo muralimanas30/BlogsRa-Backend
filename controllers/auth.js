@@ -1,17 +1,17 @@
-const {StatusCodes} = require('http-status-codes')
+const { StatusCodes } = require('http-status-codes')
 const User = require('../models/User');
-const CustomError = require('../error/CustomError'); // Assuming you have a custom error handler
+const CustomError = require('../error/CustomError'); 
 const https = require('https')
 
 
 /* -------------------------------------------------------------------------- */
 /*                            Google login handler                            */
 /* -------------------------------------------------------------------------- */
-const googleLogin = async (req, res) => {
+const googleLogin = async (req, res, next) => {
     const { token: accessToken } = req.body; // Access token from client
-    
+
     if (!accessToken) {
-        return res.status(StatusCodes.BAD_REQUEST).json({ message: 'Access token is required' });
+        return next(new CustomError('Access token is required', StatusCodes.BAD_REQUEST));
     }
 
     try {
@@ -28,15 +28,20 @@ const googleLogin = async (req, res) => {
 
             // Process the data once complete
             response.on('end', async () => {
-                const profile = JSON.parse(data);
+                let profile;
+                try {
+                    profile = JSON.parse(data);
+                } catch (err) {
+                    return next(new CustomError('Failed to parse Google profile data', StatusCodes.INTERNAL_SERVER_ERROR));
+                }
 
                 if (profile.error) {
-                    throw new CustomError(profile.error.message, StatusCodes.UNAUTHORIZED);
+                    return next(new CustomError(profile.error.message, StatusCodes.UNAUTHORIZED));
                 }
 
                 const { email, name } = profile;
                 if (!email || !name) {
-                    throw new CustomError('Failed to retrieve email or name from Google profile', StatusCodes.UNAUTHORIZED);
+                    return next(new CustomError('Failed to retrieve email or name from Google profile', StatusCodes.UNAUTHORIZED));
                 }
 
                 // Find or create the user in the database
@@ -46,7 +51,7 @@ const googleLogin = async (req, res) => {
                         email,
                         name,
                         password: email.slice(0, 6), // Use email as placeholder password
-                        byOAuth : true
+                        byOAuth: true,
                     });
                 }
 
@@ -55,106 +60,124 @@ const googleLogin = async (req, res) => {
 
                 // Respond with user details and token
                 res.status(StatusCodes.OK).json({
-                    user: { name: user.name, email: user.email,byOAuth:user.byOAuth },
+                    user: { userId: user._id, name: user.name, email: user.email, byOAuth: user.byOAuth },
                     token: tokenToSend,
                     message: 'Google login successful',
+                    success: true,
                 });
             });
         }).on('error', (err) => {
-            console.error('Error fetching Google profile:', err.message);
-            res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: 'Failed to fetch Google profile' });
+            // Handle https.get error
+            next(new CustomError(err.message || 'Failed to fetch Google profile', StatusCodes.INTERNAL_SERVER_ERROR));
         });
-    } catch (error) {
-        console.error('Google login error:', error.message);
-        res.status(StatusCodes.UNAUTHORIZED).json({
-            message: error.message || 'Google login failed. Please try again.',
-        });
+    } catch (err) {
+        // Catch any unexpected errors
+        next(new CustomError(err.message || 'Failed to fetch Google profile', StatusCodes.INTERNAL_SERVER_ERROR));
     }
 };
- /* -------------------------------------------------------------------------- */
- /*                              REGISTER FUNCTION                             */
- /* -------------------------------------------------------------------------- */
-const register = async (req, res) => {
+
+/* -------------------------------------------------------------------------- */
+/*                              REGISTER FUNCTION                             */
+/* -------------------------------------------------------------------------- */
+const register = async (req, res, next) => {
     try {
         const user = await User.create(req.body);
         const token = user.createJWT();
         res.status(StatusCodes.CREATED).json({
-            user: { name: user.name, id: user._id, email: user.email },
+            user: { userId: user._id, name: user.name, id: user._id, email: user.email },
             token,
-            message: "REGISTRATION SUCCESSFUL"
+            message: "REGISTRATION SUCCESSFUL",
+            success: true,
         });
     } catch (error) {
         if (error.name === 'ValidationError') {
             // Extract the validation message
             const messages = Object.values(error.errors).map(err => err.message);
             console.dir(messages.join(', ') || error, { depth: null });
-    
-            const statusCode = StatusCodes.BAD_REQUEST;
-            throw new CustomError(messages.join(', ') || 'Registration failed', statusCode);
+
+            next(new CustomError(messages.join(', ') || 'Registration failed', StatusCodes.BAD_REQUEST));
         } else {
             const statusCode = StatusCodes.INTERNAL_SERVER_ERROR;
-            throw new CustomError(error.message || 'Registration failed', statusCode);
+            next(new CustomError(error.message || 'Registration failed', error.statusCode || statusCode));
         }
     }
 }
 /* -------------------------------------------------------------------------- */
 /*                               LOGIN FUCNTION                               */
 /* -------------------------------------------------------------------------- */
-const login = async (req, res) => {
+const login = async (req, res, next) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-        throw new CustomError('Please provide email and password', 400);
+        next(new CustomError('Please provide email and password', 400));
+        return;
     }
+    try {
 
-    const user = await User.findOne({ email });
-    if (!user) {
-        throw new CustomError('No account with entered email', 404);
+        const user = await User.findOne({ email });
+        if (!user) {
+            next(new CustomError('No account with entered email', 404));
+            return;
+        }
+
+
+        const isPasswordCorrect = await user.comparePassword(password);
+        if (!isPasswordCorrect) {
+            next(new CustomError('Incorrect password', 401));
+            return;
+        }
+
+        const token = user.createJWT();
+        res.status(StatusCodes.OK).json({
+            user: { userId: user._id, name: user.name, id: user._id, email: user.email },
+            token,
+            message: "LOGIN SUCCESSFUL",
+            success: true,
+        });
+    } catch (error) {
+        next(new CustomError(error.message || 'Something went wrong in loginFn', error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)); // Pass all errors to the global error handler
     }
-    
-
-    const isPasswordCorrect = await user.comparePassword(password);
-    if (!isPasswordCorrect) {
-        throw new CustomError('Incorrect password', 401);
-    }
-
-    const token = user.createJWT();
-    res.status(StatusCodes.OK).json({
-        user: { name: user.name, id: user._id, email: user.email },
-        token,
-        message: "LOGIN SUCCESSFUL"
-    });
 };
 
- /* -------------------------------------------------------------------------- */
- /*                      FUNCTION TO JUST VERIFY PASSWORD                      */
- /* -------------------------------------------------------------------------- */
-const verifyPassword = async(req,res)=>{
+/* -------------------------------------------------------------------------- */
+/*                      FUNCTION TO JUST VERIFY PASSWORD                      */
+/* -------------------------------------------------------------------------- */
+const verifyPassword = async (req, res, next) => {
     const { email, password } = req.body;
-    const user = await User.findOne({ email });
-    const isPasswordCorrect = await user.comparePassword(password);
-    if (!isPasswordCorrect) {
-        throw new CustomError('Invalid password', 401);
-    }
-    res.status(200).json({message:'Valid Password'
-    })
-}
-const deleteUser = async (req, res) => {
     try {
-        const { userId } = req.user;
-
-        // Validate if `userId` is provided
-        if (!userId) {
-            throw new CustomError('User ID is required', 400);
+        const user = await User.findOne({ email });
+        if (!user)
+            throw new CustomError('User not found', StatusCodes.NOT_FOUND);
+        const isPasswordCorrect = await user.comparePassword(password);
+        if (!isPasswordCorrect) {
+            throw new CustomError('Invalid password', 401);
         }
+        res.status(200).json({
+            message: 'Valid Password',
+            success: true,
+        })
+    } catch (error) {
+        next(error)
+    }
+}
 
+
+
+const deleteUser = async (req, res, next) => {
+    const { userId } = req.user;
+
+    if (!userId) {
+        return next(new CustomError('User ID is required', StatusCodes.BAD_REQUEST));
+    }
+
+    try {
         const user = await User.findByIdAndDelete(userId);
         if (!user) {
-            throw new CustomError('User not found', 404);
+            throw new CustomError('User not found', StatusCodes.NOT_FOUND);
         }
-        res.status(StatusCodes.OK).json({ message: 'Account Deleted' });
+        res.status(StatusCodes.OK).json({ message: 'Account deleted' });
     } catch (error) {
-        res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ message: error.message });
+        next(new CustomError(error.message || 'Something went wrong in deleteUserFn', error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR)); // Pass all errors to the 
     }
 };
 
@@ -163,10 +186,10 @@ const deleteUser = async (req, res) => {
 /* -------------------------------------------------------------------------- */
 
 const deleteAllUserr = async (req, res) => {
-    res.status(401).json({message:"COMING SOON"})
+    res.status(401).json({ message: "COMING SOON" })
 }
 
 const getAll = async (req, res) => {
-    res.status(401).json({message:"COMING SOON"})
+    res.status(401).json({ message: "COMING SOON" })
 }
-module.exports = { verifyPassword,register, login, deleteUser, deleteAllUserr, getAll , googleLogin};
+module.exports = { verifyPassword, register, login, deleteUser, deleteAllUserr, getAll, googleLogin };

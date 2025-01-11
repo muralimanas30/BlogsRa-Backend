@@ -15,7 +15,7 @@ const ContactUsSchema = new mongoose.Schema({
     },
     ipAddress: {
         type: String,
-        required: true,
+        default:'unknown'
     },
     message: {
         type: String,

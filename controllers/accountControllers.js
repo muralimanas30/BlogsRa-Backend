@@ -1,6 +1,6 @@
-const AccountStatus = require('../models/AccountStatus'); 
-const { StatusCodes } = require('http-status-codes'); 
-const CustomError = require('../error/CustomError'); 
+const AccountStatus = require('../models/AccountStatus');
+const { StatusCodes } = require('http-status-codes');
+const CustomError = require('../error/CustomError');
 const cloudinary = require('../utility/cloudinary');
 const PostList = require('../models/PostList');
 require("dotenv").config()
@@ -58,8 +58,8 @@ const createAccount = async (req, res, next) => {
 /* -------------------------------------------------------------------------- */
 const updateAccount = async (req, res, next) => {
     try {
-        const { email } = req.user; 
-        const { bio } = req.body; 
+        const { email } = req.user;
+        const { bio } = req.body;
         const file = req.file;
 
         if (!email) {
@@ -73,14 +73,14 @@ const updateAccount = async (req, res, next) => {
         }
 
         existingAcc.bio = bio || existingAcc.bio;
-        let imageUrl = existingAcc.profilePicture; 
+        let imageUrl = existingAcc.profilePicture;
 
         if (file) {
             const uploadResult = await cloudinary.uploader.upload(file.path, {
                 resource_type: 'image',
             });
-            imageUrl = uploadResult.secure_url; 
-            existingAcc.profilePicture = imageUrl; 
+            imageUrl = uploadResult.secure_url;
+            existingAcc.profilePicture = imageUrl;
         }
         existingAcc.updatedAt = Date.now();
         await existingAcc.save();
@@ -88,8 +88,8 @@ const updateAccount = async (req, res, next) => {
         res.status(StatusCodes.OK).json({
             user: {
                 bio: existingAcc.bio,
-                profilePicture: existingAcc.profilePicture, 
-                updatedAt: existingAcc.updatedAt, 
+                profilePicture: existingAcc.profilePicture,
+                updatedAt: existingAcc.updatedAt,
             },
             success: true,
             message: 'Account successfully updated',
@@ -101,16 +101,16 @@ const updateAccount = async (req, res, next) => {
             Bio: ${existingAcc.bio || 'No bio provided'}
             Profile Picture: ${existingAcc.profilePicture || 'No profile picture available'}`);
 
-            await updateProfileForAllPosts(existingAcc._id,
-                existingAcc.profilePicture
-            )
-            
+        await updateProfileForAllPosts(existingAcc._id,
+            existingAcc.profilePicture
+        )
+
     } catch (error) {
         next(new CustomError(error.message || 'An error occurred while updating the account', error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
 
     }
 };
-const updateProfileForAllPosts = async(accountId, newProfilePictureUrl)=>{
+const updateProfileForAllPosts = async (accountId, newProfilePictureUrl) => {
     try {
         // Step 1: Find the PostList document for the user
         const postList = await PostList.findOne({ accountId });
@@ -142,7 +142,7 @@ const updateProfileForAllPosts = async(accountId, newProfilePictureUrl)=>{
 const getAccountDetails = async (req, res, next) => {
     try {
         const { userId } = req.body;
-        console.log(userId+" From get account details")
+        console.log(userId + " From get account details")
         // Validate userId is provided
         if (!userId) {
             throw new CustomError('User ID is required', StatusCodes.BAD_REQUEST);
@@ -173,7 +173,7 @@ const getAccountDetails = async (req, res, next) => {
             },
         });
     } catch (error) {
-        
+
         next(new CustomError(error.message || 'An error occurred while fetching account details', error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
     }
 };
@@ -206,7 +206,34 @@ const deleteAccount = async (req, res, next) => {
 };
 
 
+const idFromName = async (req, res, next) => {
+    
+    try {
+        
+        const { name } = req.params;
+        if (!name || typeof name !== 'string') {
+            throw new CustomError('Invalid name provided', StatusCodes.BAD_REQUEST);
+        }
+        const response = await AccountStatus.find(
+            { name: { $regex: name, $options: 'i' } }
+            )
+            .select('name profilePicture userId')
+            .limit(3)
+
+        if (!response.length) {
+            throw new CustomError('No account found with the given name', StatusCodes.NOT_FOUND);
+        }
+        res.status(StatusCodes.OK).json({ success: true, data: response });
+    } catch (error) {
+        next(new CustomError(error.message || 'An error occurred while getting name from account', error.statusCode || StatusCodes.INTERNAL_SERVER_ERROR));
+    }
+};
+
+const sendInitiatorResponse = async (req, res, next) => {
+    res.status(StatusCodes.OK).json({ success: true });
+}
+
 /* -------------------------------------------------------------------------- */
 /*                  Export the functions to be used in routes                 */
 /* -------------------------------------------------------------------------- */
-module.exports = { createAccount, getAccountDetails, deleteAccount, updateAccount };
+module.exports = { createAccount, getAccountDetails, deleteAccount, updateAccount, idFromName, sendInitiatorResponse };

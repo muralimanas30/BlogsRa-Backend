@@ -4,7 +4,8 @@ const CustomError = require('../error/CustomError');
 const cloudinary = require('../utility/cloudinary');
 const PostList = require('../models/PostList');
 require("dotenv").config()
-const PostSchema = require('../models/Post')
+const PostSchema = require('../models/Post');
+const { add } = require('lodash');
 
 /* -------------------------------------------------------------------------- */
 /*                           CREATE ACCOUNT FUNCTION                          */
@@ -233,7 +234,21 @@ const sendInitiatorResponse = async (req, res, next) => {
     res.status(StatusCodes.OK).json({ success: true });
 }
 
+
+const validateEmail = async (req, res, next) => {
+    try {
+        const { email } = req.params; 
+        if (!email) {
+            return res.status(StatusCodes.BAD_REQUEST).json({ success: false, message: "Email is required." });
+        }
+        return res.status(StatusCodes.OK).json({ success: true });
+    } catch (error) {
+        return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ success: false, message: `${error}` });
+    }
+};
+
+
 /* -------------------------------------------------------------------------- */
 /*                  Export the functions to be used in routes                 */
 /* -------------------------------------------------------------------------- */
-module.exports = { createAccount, getAccountDetails, deleteAccount, updateAccount, idFromName, sendInitiatorResponse };
+module.exports = { createAccount, getAccountDetails, deleteAccount, updateAccount, idFromName, sendInitiatorResponse,validateEmail };

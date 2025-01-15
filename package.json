@@ -17,6 +17,7 @@
     "bcrypt": "^5.1.1",
     "cloudinary": "^2.5.1",
     "cors": "^2.8.5",
+    "dns": "^0.2.2",
     "dotenv": "^16.4.5",
     "express": "^4.21.1",
     "express-async-errors": "^3.1.1",
@@ -35,6 +36,7 @@
     "nodemon": "^3.1.7",
     "react-router-dom": "^7.0.1",
     "sharp": "^0.33.5",
+    "smtp-connection": "^4.0.2",
     "xss-clean": "^0.1.4"
   }
 }

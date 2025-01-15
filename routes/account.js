@@ -8,7 +8,7 @@ const multer = require('multer')
 const path = require('path')
 const express = require('express')
 const router = express.Router()
-const { createAccount, getAccountDetails, deleteAccount, updateAccount,idFromName,sendInitiatorResponse } = require('../controllers/accountControllers');
+const { createAccount, getAccountDetails, deleteAccount, updateAccount,idFromName,sendInitiatorResponse,validateEmail } = require('../controllers/accountControllers');
 const { getPosts, createPost, deletePost,updatePost,deleteEverything } = require('../controllers/postControllers');
 
 
@@ -36,7 +36,7 @@ const upload2 = multer({ storage: storage2 });
 /* ------------------------- to initiate the server ------------------------- */
 router.get(`/starter`,sendInitiatorResponse)
 router.get(`/name/:name`,idFromName)
-
+router.get(`/check/:email`,validateEmail)
 /* -------------------------------------------------------------------------- */
 /*                               Account routes                               */
 /* -------------------------------------------------------------------------- */
